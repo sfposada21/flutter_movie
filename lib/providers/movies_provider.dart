@@ -3,43 +3,55 @@ import 'package:http/http.dart' as http;
 import 'package:peliculas/models/models.dart';
 import 'dart:async';
 
+import '../helpers/debouncer.dart';
+
 
 class MoviesProvider extends ChangeNotifier {
 
-  final String _apiKey   = '8a7b4f70fdfe0e1c9316002de6da453f';
-  final String _baseUrl  = 'api.themoviedb.org';
-  final String _language = 'es-ES';
+  String _apiKey   = '1865f43a0549ca50d341dd9ab8b29f49';
+  String _baseUrl  = 'api.themoviedb.org';
+  String _language = 'es-ES';
 
   List<Movie> onDisplayMovies = [];
   List<Movie> popularMovies   = [];
+
   Map<int, List<Cast>> moviesCast = {};
     
   int _popularPage = 0;
 
+  final debouncer = Debouncer(
+    duration: Duration( milliseconds: 500 ),
+  );
+
+  final StreamController<List<Movie>> _suggestionStreamContoller = new StreamController.broadcast();
+  Stream<List<Movie>> get suggestionStream => this._suggestionStreamContoller.stream;
+
+
+
   MoviesProvider() {
-    // ignore: avoid_print
-    print('MoviesProvider inicializado primera vez');
+    print('MoviesProvider inicializado');
+
     this.getOnDisplayMovies();
     this.getPopularMovies();
+
   }
 
-    Future<String> _getJsonData( String endpoint, [int page = 1] ) async {
+  Future<String> _getJsonData( String endpoint, [int page = 1] ) async {
     final url = Uri.https( _baseUrl, endpoint, {
       'api_key': _apiKey,
       'language': _language,
       'page': '$page'
     });
 
-    print(url);
+    // Await the http get response, then decode the json-formatted response.
     final response = await http.get(url);
-    print(response.body);
-    
     return response.body;
   }
 
+
   getOnDisplayMovies() async {
     
-    final jsonData = await _getJsonData('3/movie/now_playing');
+    final jsonData = await this._getJsonData('3/movie/now_playing');
     final nowPlayingResponse = NowPlayingResponse.fromJson(jsonData);
     
     onDisplayMovies = nowPlayingResponse.results;
@@ -48,24 +60,55 @@ class MoviesProvider extends ChangeNotifier {
   }
 
   getPopularMovies() async {
+
     _popularPage++;
 
     final jsonData = await this._getJsonData('3/movie/popular', _popularPage );
-    final popularResponse = PopularResponse.fromJson( jsonData );    
-
-    popularMovies = [ ...popularMovies, ...popularResponse.results ];    
-
+    final popularResponse = PopularResponse.fromJson( jsonData );
+    
+    popularMovies = [ ...popularMovies, ...popularResponse.results ];
     notifyListeners();
   }
 
-    Future<List<Cast>> getMovieCast( int movieId ) async {
+  Future<List<Cast>> getMovieCast( int movieId ) async {
 
     if( moviesCast.containsKey(movieId) ) return moviesCast[movieId]!;
+
     final jsonData = await this._getJsonData('3/movie/$movieId/credits');
     final creditsResponse = CreditsResponse.fromJson( jsonData );
+
     moviesCast[movieId] = creditsResponse.cast;
 
     return creditsResponse.cast;
   }
+
+  Future<List<Movie>> searchMovies( String query ) async {
+
+    final url = Uri.https( _baseUrl, '3/search/movie', {
+      'api_key': _apiKey,
+      'language': _language,
+      'query': query
+    });
+
+    final response = await http.get(url);
+    final searchResponse = SearchResponse.fromJson( response.body );
+    return searchResponse.results;
+  }
+
+  void getSuggestionsByQuery( String searchTerm ) {
+    debouncer.value = '';
+    debouncer.onValue = ( value ) async {
+      
+      final results = await this.searchMovies(value);
+      this._suggestionStreamContoller.add( results );
+    };
+
+    final timer = Timer.periodic(Duration(milliseconds: 300), ( _ ) { 
+      debouncer.value = searchTerm;
+    });
+
+    Future.delayed(Duration( milliseconds: 400)).then(( _ ) => timer.cancel());
+  }
+
 
 }
