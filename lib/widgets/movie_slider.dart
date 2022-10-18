@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../models/models.dart';
 
 class MovieSlider extends StatefulWidget {
@@ -20,20 +19,29 @@ class MovieSlider extends StatefulWidget {
 }
 
 class _MovieSliderState extends State<MovieSlider> {
+
   final ScrollController scrollController = new ScrollController();
+
   @override
   void initState() { 
-    super.initState();    
-    scrollController.addListener(() {      
+    super.initState();
+    
+    scrollController.addListener(() {
+      
       if ( scrollController.position.pixels >= scrollController.position.maxScrollExtent - 500 ) {
         widget.onNextPage();
-      }    
+      }
+      
+
     });
 
   }
 
   @override
-  void dispose() { 
+  void dispose() {
+    
+
+
     super.dispose();
   }
 
@@ -69,19 +77,9 @@ class _MovieSliderState extends State<MovieSlider> {
   }
 }
 
-class _TittlePosters extends StatelessWidget {
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(            
-    padding: EdgeInsets.symmetric( horizontal: 20),
-    child: Text('Populares', style: TextStyle( fontSize: 20),
-    ));
-  }
-}
-
 
 class _MoviePoster extends StatelessWidget {
+
   
   final Movie movie;
   final String heroId;
